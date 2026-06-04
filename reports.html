@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LIDS Reports</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="/">Dashboard</a> | <a href="/reports">Reports</a>
+        </nav>
+        <h1>Detection Logs (Live)</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>CAN ID</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="log-table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function updateReports() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                const tbody = document.getElementById('log-table-body');
+                
+                // Build HTML for rows
+                tbody.innerHTML = data.recent_logs.map(log => `
+                    <tr style="background-color: ${log.is_anomaly ? '#fee2e2' : '#f0fdf4'}">
+                        <td>${log.timestamp}</td>
+                        <td><code>${log.can_id}</code></td>
+                        <td><span class="badge">${log.alert_type}</span></td>
+                        <td>${log.is_anomaly ? "🚨 ANOMALY" : "✅ Normal"}</td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error("Report update failed:", err); }
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(updateReports, 2000);
+        updateReports(); // Initial run
+    </script>
+</body>
+</html>
