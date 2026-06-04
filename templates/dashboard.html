@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIDS SOC Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">LIDS<span>ENGINE</span></div>
+            <div class="status-indicator">
+                <span class="dot"></span> System Live
+            </div>
+        </nav>
+
+        <div class="grid-layout">
+            <section class="panel stats-panel">
+                <div class="header-group">
+                    <h1>Network Overview</h1>
+                    <p>Real-time CAN Bus anomaly distribution</p>
+                </div>
+
+                <div class="card-container">
+                    <div class="stat-card" id="card-interval">
+                        <label>Interval</label>
+                        <div class="value" id="count-interval">{{ stats.get('Interval', 0) }}</div>
+                    </div>
+                    <div class="stat-card" id="card-frequency">
+                        <label>Frequency</label>
+                        <div class="value" id="count-frequency">{{ stats.get('Frequency', 0) }}</div>
+                    </div>
+                    <div class="stat-card" id="card-payload">
+                        <label>Payload</label>
+                        <div class="value" id="count-payload">{{ stats.get('Payload', 0) }}</div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="alertChart"></canvas>
+                </div>
+            </section>
+
+            <section class="panel reports-panel">
+                <div class="header-group">
+                    <h2>Live Threat Feed</h2>
+                    <p>Recent events processed by DecisionFusion</p>
+                </div>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>CAN ID</th>
+                                <th>Type</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-table-body">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('alertChart').getContext('2d');
+        let alertChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Interval', 'Frequency', 'Payload'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: ['#ff4d4d', '#00d4ff', '#ffcc00'],
+                    borderColor: '#1a1a2e',
+                    borderWidth: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#fff', padding: 20 } }
+                }
+            }
+        });
+
+        async function updateDashboard() {
+    try {
+        const response = await fetch('/api/data');
+        if (!response.ok) throw new Error("Network response was not ok");
+        const data = await response.json();
+        
+        // Define our three specific detectors from the Class Diagram
+        const intervalVal = data.stats.Interval || 0;
+        const frequencyVal = data.stats.Frequency || 0;
+        const payloadVal = data.stats.Payload || 0;
+
+        // 1. Update the "Network Overview" Card Numbers
+        document.getElementById('count-interval').innerText = intervalVal;
+        document.getElementById('count-frequency').innerText = frequencyVal;
+        document.getElementById('count-payload').innerText = payloadVal;
+
+        // 2. Update the "Real-time CAN Bus Anomaly Distribution" Chart
+        alertChart.data.datasets[0].data = [
+            intervalVal,
+            frequencyVal,
+            payloadVal
+        ];
+        
+        // Use 'none' as the update mode to keep the UI snappy during high-frequency simulation
+        alertChart.update('none');
+
+        // 3. Update the Live Threat Feed Table
+        const tbody = document.getElementById('log-table-body');
+        tbody.innerHTML = data.recent_logs.map(log => `
+            <tr class="${log.is_anomaly ? 'row-anomaly' : 'row-benign'}">
+                <td>${log.timestamp.split(' ')[1]}</td> <td><code>${log.can_id}</code></td>
+                <td>${log.alert_type}</td>
+                <td><span class="status-tag">${log.is_anomaly ? 'ALERT' : 'OK'}</span></td>
+            </tr>
+        `).join('');
+
+    } catch (err) { 
+        console.error("Data Sync Error:", err); 
+    }
+}
+
+        setInterval(updateDashboard, 2000);
+        updateDashboard();
+    </script>
+</body>
+</html>
