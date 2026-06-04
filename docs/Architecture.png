@@ -1,0 +1,9 @@
+CAN Traffic
+     ↓
+Simulator
+     ↓
+SQLite Database
+     ↓
+Detection Engine
+     ↓
+Flask Dashboard
